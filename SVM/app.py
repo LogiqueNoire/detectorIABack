@@ -1,9 +1,8 @@
 from flask import Flask, request, jsonify
 import joblib
-import pandas as pd
-from pdfminer.high_level import extract_text
 import docx
 from flask_cors import CORS
+import fitz
 
 app = Flask(__name__)
 CORS(app)
@@ -11,16 +10,19 @@ CORS(app)
 model = joblib.load("modelo_svm_calibrado.joblib")
 vectorizer = joblib.load("tfidf_vectorizer.joblib")
 
-def extract_from_pdf(file_path):
-    return extract_text(file_path)
+def extract_from_pdf(path):
+    doc = fitz.open(path)
+    text = ""
+    for page in doc:
+        text += page.get_text()
+    return text
 
-def extract_from_docx(file_path):
-    doc = docx.Document(file_path)
+def extract_from_docx(path):
+    doc = docx.Document(path)
     return "\n".join([p.text for p in doc.paragraphs])
 
 def extract_text_from_file(file):
     filename = file.filename.lower()
-    
     tmp_path = "/tmp/" + filename
     file.save(tmp_path)
 
@@ -28,7 +30,7 @@ def extract_text_from_file(file):
         return extract_from_pdf(tmp_path)
     elif filename.endswith(".docx"):
         return extract_from_docx(tmp_path)
-    else:  # txt
+    else:
         return open(tmp_path, "r", encoding="utf-8").read()
 
 @app.route("/predict", methods=["POST"])
@@ -42,7 +44,6 @@ def predict():
         text = extract_text_from_file(file)
         X = vectorizer.transform([text])
         prediction = int(model.predict(X)[0])
-
         prob = model.predict_proba(X)[0][1]     # probabilidad clase 1 (IA
 
         return jsonify({
