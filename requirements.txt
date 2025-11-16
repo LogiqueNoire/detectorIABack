@@ -7,3 +7,5 @@ sentence-transformers
 python-docx
 PyMuPDF
 scikit-learn
+transformers
+safetensors
