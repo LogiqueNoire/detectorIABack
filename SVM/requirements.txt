@@ -1,8 +1,0 @@
-flask
-scikit-learn
-pandas
-numpy
-joblib
-pdfminer.six
-python-docx
-flask_cors
