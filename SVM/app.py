@@ -3,8 +3,10 @@ import joblib
 import pandas as pd
 from pdfminer.high_level import extract_text
 import docx
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 model = joblib.load("modelo_svm_calibrado.joblib")
 vectorizer = joblib.load("tfidf_vectorizer.joblib")
