@@ -21,8 +21,16 @@ vectorizer = joblib.load("tfidf_vectorizer.joblib")
 # ==== CARGAR MODELO MLP ====
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
+# ==== CARGAR MODELO MLP ====
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+mlp_path = os.path.join(BASE_DIR, "mlp_model.pt")
+
+print("Cargando modelo MLP desde:", mlp_path)
+print("Archivos disponibles en BASE_DIR:", os.listdir(BASE_DIR))
+
 mlp_model = SimpleNet(input_dim=384, hidden_dim=256, n_classes=3)
-state_dict = torch.load("mlp_model.pt", map_location="cpu")
+
+state_dict = torch.load(mlp_path, map_location="cpu")
 mlp_model.load_state_dict(state_dict)
 mlp_model.eval()
 
