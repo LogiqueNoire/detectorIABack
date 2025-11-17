@@ -10,6 +10,9 @@ import fitz
 import os
 import uuid
 
+# para roberta
+from transformers import RobertaForSequenceClassification, RobertaTokenizer
+
 app = Flask(__name__)
 CORS(app)
 
@@ -34,6 +37,12 @@ state_dict = torch.load(mlp_path, map_location="cpu")
 mlp_model.load_state_dict(state_dict)
 mlp_model.eval()
 
+# ==========  CARGAR MODELO roberta =========== #
+
+model = RobertaForSequenceClassification.from_pretrained("modelo_tesis")
+tokenizer = RobertaTokenizer.from_pretrained("tokenizer_tesis")
+
+# Funcion de extraccion de texto
 def extract_text_from_file(file):
     filename = file.filename.lower()
     ext = filename.split(".")[-1]
@@ -79,6 +88,35 @@ def predictSVM():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+#=============       roBERTa       =============#
+@app.route("/predict/roberta", methods=["POST"])
+def predictRoBERTa():
+    if "file" not in request.files:
+        return jsonify({"error": "Debes enviar un archivo"}), 400
+    
+    file = request.files["file"]
+
+    try:
+        texto = extract_text_from_file(file)
+        tokens = tokenizer(texto, truncation=True, padding=True, max_length=512, return_tensors="pt")
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
+        tokens = {k: v.to(device) for k, v in tokens.items()}
+
+        with torch.no_grad():
+            logits = model(**tokens).logits
+            
+        pred = torch.argmax(logits, dim=1).item()
+        probs = torch.softmax(logits, dim=1)
+        prob_pred = probs[0][pred].item()
+
+        return jsonify({"predicted_label": int(pred), "prob": prob_pred})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
     
 #=============       MLP       =============#
 @app.route("/predict/mlp", methods=["POST"])
