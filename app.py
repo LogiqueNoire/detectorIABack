@@ -91,10 +91,14 @@ def predictMLP():
         emb = embedder.encode([text], convert_to_numpy=True)
 
         X = torch.tensor(emb, dtype=torch.float32)
-        logits = mlp_model(X)
-        pred = torch.argmax(logits, dim=1).item()
 
-        return jsonify({"prediction": int(pred)})
+        with torch.no_grad():
+            logits = mlp_model(X)
+            probs = torch.softmax(logits, dim=1)
+            pred = int(torch.argmax(probs, dim=1).item())
+            prob_pred = float(probs[0][pred].item())
+
+        return jsonify({"predicted_label": int(pred), "prob": prob_pred})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
