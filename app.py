@@ -9,7 +9,6 @@ from text_extractor import extract_text_from_file
 # para roberta
 from safetensors.torch import load_file
 from transformers import RobertaForSequenceClassification, RobertaTokenizer, RobertaConfig
-from downloader import download_from_gdrive
 import os
 
 app = Flask(__name__)
@@ -42,15 +41,8 @@ def predictSVM():
         return jsonify({"error": str(e)}), 500
 
 # ==========  CARGAR MODELO roberta =========== #
-MODEL_PATH = "/tmp/model.safetensors"
-GDRIVE_FILE_ID = "1gka7FIwUkOr6RZWuQbdo2jRwqp3xmap_"
-
-# Descargar el modelo .safetensors si no existe
-if not os.path.exists(MODEL_PATH):
-    print("Descargando modelo desde Google Drive...")
-    download_from_gdrive(GDRIVE_FILE_ID, MODEL_PATH)
-else:
-    print("Modelo ya está descargado en /tmp")
+# Ruta donde Docker guardará el modelo
+MODEL_PATH = "/app/model.safetensors"
 
 # ================== CARGAR TOKENIZER ================== #
 tokenizer = RobertaTokenizer.from_pretrained("tokenizer_tesis")
@@ -59,9 +51,9 @@ tokenizer = RobertaTokenizer.from_pretrained("tokenizer_tesis")
 config = RobertaConfig.from_pretrained("modelo_tesis")
 
 # ================== CARGAR MODELO DESDE SAFETENSORS ================== #
-print("Cargando modelo RoBERTa desde .safetensors...")
+print("Cargando modelo RoBERTa desde model.safetensors...")
 
-state_dict = load_file(MODEL_PATH) 
+state_dict = load_file(MODEL_PATH)
 
 model = RobertaForSequenceClassification.from_pretrained(
     pretrained_model_name_or_path=None,
@@ -69,7 +61,7 @@ model = RobertaForSequenceClassification.from_pretrained(
     state_dict=state_dict
 )
 
-model.eval()  # IMPORTANTE
+model.eval()
 print("RoBERTa cargado exitosamente ✔")
 
 #=============       roBERTa       =S============#
