@@ -8,3 +8,4 @@ python-docx
 PyMuPDF
 scikit-learn
 transformers
+safetensors

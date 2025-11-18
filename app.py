@@ -1,73 +1,25 @@
 from flask import Flask, request, jsonify
 import joblib
-import docx
 import torch
-import numpy as np
 from model_mlp import SimpleNet
 from sentence_transformers import SentenceTransformer
 from flask_cors import CORS
-import fitz
-import os
-import uuid
+from text_extractor import extract_text_from_file
 
 # para roberta
-from transformers import RobertaForSequenceClassification, RobertaTokenizer
+from safetensors.torch import load_file
+from transformers import RobertaForSequenceClassification, RobertaTokenizer, RobertaConfig
+from downloader import download_from_gdrive
+import os
 
 app = Flask(__name__)
 CORS(app)
-
 
 # ==========  CARGAR MODELO SVM + TFIDF =========== #
 svm_model = joblib.load("modelo_svm_calibrado.joblib")
 vectorizer = joblib.load("tfidf_vectorizer.joblib")
 
-# ==== CARGAR MODELO MLP ====
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
-
-# ==== CARGAR MODELO MLP ====
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-mlp_path = os.path.join(BASE_DIR, "mlp_model.pt")
-
-print("Cargando modelo MLP desde:", mlp_path)
-print("Archivos disponibles en BASE_DIR:", os.listdir(BASE_DIR))
-
-mlp_model = SimpleNet(input_dim=384, hidden_dim=256, n_classes=3)
-
-state_dict = torch.load(mlp_path, map_location="cpu")
-mlp_model.load_state_dict(state_dict)
-mlp_model.eval()
-
-# ==========  CARGAR MODELO roberta =========== #
-
-model = RobertaForSequenceClassification.from_pretrained("modelo_tesis")
-tokenizer = RobertaTokenizer.from_pretrained("tokenizer_tesis")
-
-# Funcion de extraccion de texto
-def extract_text_from_file(file):
-    filename = file.filename.lower()
-    ext = filename.split(".")[-1]
-    tmp_path = f"/tmp/{uuid.uuid4()}.{ext}"  # NOMBRE ÚNICO
-
-    file.save(tmp_path)
-
-    try:
-        if ext == "pdf":
-            doc = fitz.open(tmp_path)
-            text = "".join([page.get_text() for page in doc])
-        elif ext == "docx":
-            doc = docx.Document(tmp_path)
-            text = "\n".join([p.text for p in doc.paragraphs])
-        elif ext == "txt":
-            text = open(tmp_path, "r", encoding="utf-8", errors="ignore").read()
-        else:
-            raise ValueError("Formato no soportado")
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)  # LIMPIA SIEMPRE
-
-    return text
-
-#=============       SVM       =============#
+#=============       ENDPOINT SVM       =============#
 @app.route("/predict/svm", methods=["POST"])
 def predictSVM():
     if "file" not in request.files:
@@ -79,7 +31,7 @@ def predictSVM():
         text = extract_text_from_file(file)
         X = vectorizer.transform([text])
         prediction = int(svm_model.predict(X)[0])
-        prob = svm_model.predict_proba(X)[0][1]     # probabilidad clase 1 (IA
+        prob = svm_model.predict_proba(X)[0][1]
 
         return jsonify({
             "predicted_label": prediction,
@@ -88,8 +40,39 @@ def predictSVM():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
-#=============       roBERTa       =============#
+
+# ==========  CARGAR MODELO roberta =========== #
+MODEL_PATH = "/tmp/model.safetensors"
+GDRIVE_FILE_ID = "1gka7FIwUkOr6RZWuQbdo2jRwqp3xmap_"
+
+# Descargar el modelo .safetensors si no existe
+if not os.path.exists(MODEL_PATH):
+    print("Descargando modelo desde Google Drive...")
+    download_from_gdrive(GDRIVE_FILE_ID, MODEL_PATH)
+else:
+    print("Modelo ya está descargado en /tmp")
+
+# ================== CARGAR TOKENIZER ================== #
+tokenizer = RobertaTokenizer.from_pretrained("tokenizer_tesis")
+
+# ================== CARGAR CONFIG ================== #
+config = RobertaConfig.from_pretrained("modelo_tesis")
+
+# ================== CARGAR MODELO DESDE SAFETENSORS ================== #
+print("Cargando modelo RoBERTa desde .safetensors...")
+
+state_dict = load_file(MODEL_PATH) 
+
+model = RobertaForSequenceClassification.from_pretrained(
+    pretrained_model_name_or_path=None,
+    config=config,
+    state_dict=state_dict
+)
+
+model.eval()  # IMPORTANTE
+print("RoBERTa cargado exitosamente ✔")
+
+#=============       roBERTa       =S============#
 @app.route("/predict/roberta", methods=["POST"])
 def predictRoBERTa():
     if "file" not in request.files:
@@ -117,7 +100,23 @@ def predictRoBERTa():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    
+
+# ==== CARGAR MODELO MLP ====
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
+
+# ==== CARGAR MODELO MLP ====
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+mlp_path = os.path.join(BASE_DIR, "mlp_model.pt")
+
+print("Cargando modelo MLP desde:", mlp_path)
+print("Archivos disponibles en BASE_DIR:", os.listdir(BASE_DIR))
+
+mlp_model = SimpleNet(input_dim=384, hidden_dim=256, n_classes=3)
+
+state_dict = torch.load(mlp_path, map_location="cpu")
+mlp_model.load_state_dict(state_dict)
+mlp_model.eval()
+
 #=============       MLP       =============#
 @app.route("/predict/mlp", methods=["POST"])
 def predictMLP():
