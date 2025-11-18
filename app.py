@@ -61,6 +61,8 @@ model = RobertaForSequenceClassification.from_pretrained(
     state_dict=state_dict
 )
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
 model.eval()
 print("RoBERTa cargado exitosamente ✔")
 
@@ -76,8 +78,8 @@ def predictRoBERTa():
         texto = extract_text_from_file(file)
         tokens = tokenizer(texto, truncation=True, padding=True, max_length=512, return_tensors="pt")
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model.to(device)
+        #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        #model.to(device)
         tokens = {k: v.to(device) for k, v in tokens.items()}
 
         with torch.no_grad():
