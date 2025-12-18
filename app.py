@@ -4,15 +4,22 @@ import torch
 from models.mlp.model_mlp import SimpleNet
 from sentence_transformers import SentenceTransformer
 from flask_cors import CORS
-from text_extractor import extract_text_from_file
+#from text_extractor import extract_text_from_file
+from dotenv import load_dotenv
+load_dotenv()
+import os
 
 # para roberta
 from safetensors.torch import load_file
 from transformers import RobertaForSequenceClassification, RobertaTokenizer, RobertaConfig
 import os
 
+origins = os.getenv("CROSS_ORIGINS", "").split(",")
 app = Flask(__name__)
-CORS(app)
+CORS(
+    app,
+    origins=origins
+)
 
 # ==========  CARGAR MODELO SVM + TFIDF =========== #
 svm_model = joblib.load("models/svm/modelo_svm_calibrado.joblib")
