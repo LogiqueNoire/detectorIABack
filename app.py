@@ -18,7 +18,7 @@ origins = os.getenv("CROSS_ORIGINS", "").split(",")
 app = Flask(__name__)
 CORS(
     app,
-    origins=origins
+    origins=["https://detectoria.vercel.app", "http://localhost:3000"]
 )
 
 # ==========  CARGAR MODELO SVM + TFIDF =========== #
